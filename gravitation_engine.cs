@@ -25,12 +25,10 @@ namespace Script1
         const string THRUST_BACKWARD = "тягаНазад";
         const string ARTIFICIAL_MASS = "допМасса";
 
-        const string COCKPIT = "main cockpit";
-
-        const string GYROSCOPES = "гироскопы";
+        const string COCKPIT = "кокпит"; // название необходимых блоков в игре
 
 
-        List<IMyTerminalBlock> blocks = new List<IMyTerminalBlock>();
+        List<IMyTerminalBlock> blocks = new List<IMyTerminalBlock>(); // буфер блоков
 
         List<IMyGravityGenerator> thrustUp = new List<IMyGravityGenerator>();
         List<IMyGravityGenerator> thrustDown = new List<IMyGravityGenerator>();
@@ -38,16 +36,20 @@ namespace Script1
         List<IMyGravityGenerator> thrustLeft = new List<IMyGravityGenerator>();
         List<IMyGravityGenerator> thrustForward = new List<IMyGravityGenerator>();
         List<IMyGravityGenerator> thrustBackward = new List<IMyGravityGenerator>();
+
         List<IMyArtificialMassBlock> artificialMass = new List<IMyArtificialMassBlock>();
 
         IMyCockpit cockpit;
-
-        List<IMyGyro> gyros = new List<IMyGyro>();
 
         MyShipVelocities velocity;
 
         public Program()
         {
+            /*
+             * 
+             * Инициализация блоков управления
+             * 
+             */
             GridTerminalSystem.GetBlockGroupWithName(THRUST_UP).GetBlocks(blocks);
             GetBlockGroup(thrustUp, blocks);
 
@@ -69,12 +71,9 @@ namespace Script1
             GridTerminalSystem.GetBlockGroupWithName(ARTIFICIAL_MASS).GetBlocks(blocks);
             GetBlockGroup(artificialMass, blocks);
 
-            cockpit = GridTerminalSystem.GetBlockWithName(COCKPIT) as IMyCockpit;
+            cockpit = GridTerminalSystem.GetBlockWithName(COCKPIT) as IMyCockpit; 
 
-            GridTerminalSystem.GetBlockGroupWithName(GYROSCOPES).GetBlocks(blocks);
-            GetBlockGroup(gyros, blocks);
-
-            Runtime.UpdateFrequency = UpdateFrequency.Update1;
+            Runtime.UpdateFrequency = UpdateFrequency.Update1; // частота обновлений скрипта (60 раз за секунду)
         }
 
         private void GetBlockGroup<BlockTypeInterface>(List<BlockTypeInterface> generators, List<IMyTerminalBlock> blocks)
@@ -85,6 +84,10 @@ namespace Script1
             }
         }
 
+        /// <summary>
+        /// Включение генераторов гравитации
+        /// </summary>
+        /// <param name="generators"></param>
         private void ThrustOn(List<IMyGravityGenerator> generators) 
         {
             for(int i = 0; i < generators.Count; i++)
@@ -93,6 +96,10 @@ namespace Script1
             }
         }
 
+        /// <summary>
+        /// Выключение генераторов гравитации
+        /// </summary>
+        /// <param name="generators"></param>
         private void ThrustOff(List<IMyGravityGenerator> generators)
         {
             for (int i = 0; i < generators.Count; i++)
@@ -100,6 +107,7 @@ namespace Script1
                 generators[i].ApplyAction("OnOff_Off");
             }
         }
+
 
         private void ArtificialMassOnOff(string on_off)
         {
@@ -109,31 +117,21 @@ namespace Script1
             }
         }
 
+
         /// <summary>
-        /// true = on; false = off
+        /// гаситель инерции
         /// </summary>
-        /// <param name="on_off"></param>
-        private void GyrosLockOnOff(bool on_off)
-        {
-            for (int i = 0; i < gyros.Count; i++)
-            {
-                gyros[i].GyroOverride = on_off;
-            }
-        }
-
-
-
         private void InertionCompensator()
         {
-            velocity = cockpit.GetShipVelocities();
+            velocity = cockpit.GetShipVelocities(); // получение скорости корабля относительно мира
 
-            Vector3D V3Dfow = cockpit.WorldMatrix.Forward;
-            Vector3D V3Dup = cockpit.WorldMatrix.Up;
-            Vector3D V3Dleft = cockpit.WorldMatrix.Left;
+            Vector3D V3Dfow = cockpit.WorldMatrix.Forward; // вектор направления вперед у корабля
+            Vector3D V3Dup = cockpit.WorldMatrix.Up; // вектор направления вверх у корабля
+            Vector3D V3Dleft = cockpit.WorldMatrix.Left; // вектор направления влево у корабля
 
-            Vector3D velocityV3Dleft = new Vector3D(velocity.LinearVelocity.X, 0, 0);
-            Vector3D velocityV3Dup = new Vector3D(0, velocity.LinearVelocity.Y, 0);
-            Vector3D velocityV3Dfow = new Vector3D(0, 0, velocity.LinearVelocity.Z);
+            Vector3D velocityV3Dleft = new Vector3D(velocity.LinearVelocity.X, 0, 0); // вектор скорости по оси X (лево/право)
+            Vector3D velocityV3Dup = new Vector3D(0, velocity.LinearVelocity.Y, 0); // вектор скорости по оси Y (вверх/вниз)
+            Vector3D velocityV3Dfow = new Vector3D(0, 0, velocity.LinearVelocity.Z); // вектор скорости по оси Z (вперед/назад)
 
             double projectionLeft = velocityV3Dleft.Length() * Vector3D.Dot(velocityV3Dleft, V3Dleft) + 
                 velocityV3Dfow.Length() * Vector3D.Dot(velocityV3Dfow, V3Dleft) + 
@@ -145,9 +143,11 @@ namespace Script1
 
             double projectionFow = velocityV3Dleft.Length() * Vector3D.Dot(velocityV3Dleft, V3Dfow) +
                 velocityV3Dfow.Length() * Vector3D.Dot(velocityV3Dfow, V3Dfow) +
-                velocityV3Dup.Length() * Vector3D.Dot(velocityV3Dup, V3Dfow);
+                velocityV3Dup.Length() * Vector3D.Dot(velocityV3Dup, V3Dfow); // нахождение длин проекций по 3 осям
 
-
+            /*
+             * Управление тягой вперед/назад
+             */
             if (projectionFow > 10)
             {
                 ThrustOn(thrustBackward);
@@ -164,7 +164,9 @@ namespace Script1
                 ThrustOff(thrustBackward);
             }
 
-
+            /*
+             * Управление тягой влево/вправо
+             */
             if (projectionLeft > 10)
             {
                 ThrustOn(thrustRight);
@@ -182,7 +184,9 @@ namespace Script1
                 ThrustOff(thrustLeft);
             }
 
-
+            /*
+             * Управление тягой вверх/вниз
+             */
             if (projectionUp > 10)
             {
                 ThrustOn(thrustDown);
@@ -202,6 +206,11 @@ namespace Script1
 
         public void Main(string args)
         {
+            /*
+             * Управление кораблем с помощью клавишь на клавиатуре 
+             */
+
+
             if (cockpit.MoveIndicator.X > 0)
             {
                 ThrustOn(thrustRight);
@@ -253,18 +262,17 @@ namespace Script1
             }
 
 
-
-
+            /*
+             * Если никакого управления нет, то блоки искусственной массы, необходимы для работы двигателя, выключаются (тк утяжеляют корабль)
+             */
             if(cockpit.MoveIndicator.X == 0 && cockpit.MoveIndicator.Y == 0 && cockpit.MoveIndicator.Z == 0)
             {
                 ArtificialMassOnOff("OnOff_On");
-                GyrosLockOnOff(false);
                 InertionCompensator();
             }
             else
             {
                 ArtificialMassOnOff("OnOff_On");
-                GyrosLockOnOff(true);
             }
         }
 
